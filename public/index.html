@@ -62,19 +62,40 @@
     (function () {
       var KEY = 'zatsu-proxy-history';
       var MAX = 50;
+      // Canonicalize to "https://host/..." form so history stays consistent
+      // whether the user typed a bare hostname or a full URL.
+      function norm(v) {
+        var t = (v || '').trim();
+        if (!t) return '';
+        var c = t.slice(0, 2) === '//' ? 'https:' + t
+              : (/^[a-z][a-z0-9+.\-]*:/i.test(t) ? t : 'https://' + t);
+        try {
+          var u = new URL(c);
+          return u.protocol === 'https:' ? u.toString() : '';
+        } catch (e) { return ''; }
+      }
+      function load() {
+        var raw;
+        try { raw = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { raw = []; }
+        var seen = Object.create(null), clean = [];
+        for (var i = 0; i < raw.length; i++) {
+          var n = norm(raw[i]);
+          if (n && !seen[n]) { seen[n] = 1; clean.push(n); }
+        }
+        localStorage.setItem(KEY, JSON.stringify(clean));
+        return clean;
+      }
       var dl = document.getElementById('zatsu-history');
-      var h;
-      try { h = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { h = []; }
+      var h = load();
       for (var i = 0; i < h.length; i++) {
         var o = document.createElement('option');
         o.value = h[i];
         dl.appendChild(o);
       }
       document.querySelector('form').addEventListener('submit', function (e) {
-        var v = (e.target.url.value || '').trim();
+        var v = norm(e.target.url.value);
         if (!v) return;
-        var cur;
-        try { cur = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (err) { cur = []; }
+        var cur = load();
         cur = [v].concat(cur.filter(function (u) { return u !== v; })).slice(0, MAX);
         localStorage.setItem(KEY, JSON.stringify(cur));
       });

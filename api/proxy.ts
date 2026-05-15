@@ -256,11 +256,13 @@ export default async function handler(request: Request): Promise<Response> {
     $('body').prepend(bar)
 
     // Persist the current proxied URL and offer history-based autocomplete
-    // in the injected bar. JSON-encoded URL prevents any string-breakout.
+    // in the injected bar. Entries are canonicalized via the URL parser so
+    // they match what the landing-page form stores, and old non-normalized
+    // entries get cleaned up on every read.
     $('body').append(
       `<script id="__zatsu_proxy_history__">(function(){var K='zatsu-proxy-history',M=50,cur=${JSON.stringify(
         finalUrl,
-      )};try{var h=JSON.parse(localStorage.getItem(K)||'[]');if(cur)h=[cur].concat(h.filter(function(u){return u!==cur})).slice(0,M);localStorage.setItem(K,JSON.stringify(h));var dl=document.getElementById('__zatsu_history__');if(dl){for(var i=0;i<h.length;i++){var o=document.createElement('option');o.value=h[i];dl.appendChild(o);}}}catch(e){}})();</script>`,
+      )};function n(v){var t=(v||'').trim();if(!t)return'';var c=t.slice(0,2)==='//'?'https:'+t:(/^[a-z][a-z0-9+.\\-]*:/i.test(t)?t:'https://'+t);try{var u=new URL(c);return u.protocol==='https:'?u.toString():''}catch(e){return''}}try{var raw=JSON.parse(localStorage.getItem(K)||'[]'),seen=Object.create(null),h=[];for(var i=0;i<raw.length;i++){var x=n(raw[i]);if(x&&!seen[x]){seen[x]=1;h.push(x)}}var nc=n(cur);if(nc)h=[nc].concat(h.filter(function(u){return u!==nc})).slice(0,M);localStorage.setItem(K,JSON.stringify(h));var dl=document.getElementById('__zatsu_history__');if(dl){for(var j=0;j<h.length;j++){var o=document.createElement('option');o.value=h[j];dl.appendChild(o)}}}catch(e){}})();</script>`,
     )
 
     return new Response($.html(), {
