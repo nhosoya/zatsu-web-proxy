@@ -1,5 +1,7 @@
 import { load } from 'cheerio'
 
+export const config = { runtime: 'edge' }
+
 const PROXY_PATH = '/api/proxy'
 const FETCH_TIMEOUT_MS = 8_000
 
@@ -41,8 +43,8 @@ function rewriteSrcset(value: string | undefined, baseUrl: string): string | und
 }
 
 export default async function handler(request: Request): Promise<Response> {
-  const requestUrl = new URL(request.url)
-  const target = requestUrl.searchParams.get('url')
+  const queryString = request.url.split('?')[1] ?? ''
+  const target = new URLSearchParams(queryString).get('url')
 
   if (!target) {
     return new Response('Missing url query parameter', { status: 400 })
