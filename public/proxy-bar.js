@@ -70,8 +70,7 @@
         li.addEventListener('mousedown', (function (val) {
           return function (e) {
             e.preventDefault();
-            input.value = val;
-            submitForm(input.form);
+            pickValue(val);
           };
         })(matches[i]));
         dropdown.appendChild(li);
@@ -80,10 +79,18 @@
       activeIdx = -1;
     }
 
-    function submitForm(form) {
-      if (!form) return;
-      if (typeof form.requestSubmit === 'function') form.requestSubmit();
-      else form.submit();
+    // Fill the input without submitting so the user can still tweak the URL
+    // (add a query string, fix a typo, etc.) before pressing Enter / Go.
+    function pickValue(val) {
+      input.value = val;
+      input.focus();
+      // Put the caret at the end so further typing appends naturally.
+      try {
+        var len = val.length;
+        input.setSelectionRange(len, len);
+      } catch (e) { /* not all input types support setSelectionRange */ }
+      dropdown.style.display = 'none';
+      activeIdx = -1;
     }
 
     function updateActive() {
@@ -125,9 +132,11 @@
         activeIdx = activeIdx <= 0 ? matches.length - 1 : activeIdx - 1;
         updateActive();
       } else if (e.key === 'Enter' && activeIdx >= 0) {
+        // Enter on an active suggestion just fills the input — the user
+        // still needs a second Enter (or click Go) to actually submit, so
+        // they can add a path / query before navigating.
         e.preventDefault();
-        input.value = matches[activeIdx];
-        submitForm(input.form);
+        pickValue(matches[activeIdx]);
       } else if (e.key === 'Escape') {
         dropdown.style.display = 'none';
         activeIdx = -1;

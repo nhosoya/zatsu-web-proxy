@@ -42,6 +42,12 @@
     }
     button:hover { background: #0060df; }
     ul.limits { color: #666; font-size: 0.9rem; line-height: 1.6; }
+    footer {
+      margin-top: 3rem; padding-top: 1.25rem;
+      border-top: 1px solid #eee;
+      color: #888; font-size: 0.85rem; line-height: 1.6;
+    }
+    footer a { color: #555; }
 
     /* Autocomplete dropdown — light theme for the landing page. */
     .zatsu-ac-wrap { position: relative; flex: 1; display: flex; }
@@ -75,6 +81,17 @@
     <li>Cookies and authenticated sessions are not preserved.</li>
     <li>WebSockets, fetch / XHR from page scripts, and GET forms on the original page may break.</li>
   </ul>
+  <footer>
+    <p>
+      Built and run by <a href="https://github.com/nhosoya">nhosoya</a> as a personal tool.
+      Provided as-is with no guarantee of availability, accuracy, or fitness for any purpose — use at your own risk.
+      Do not put credentials, personal data, or anything you would not paste into a random website through it.
+    </p>
+    <p>
+      Issues and pull requests welcome at
+      <a href="https://github.com/nhosoya/zatsu-web-proxy">github.com/nhosoya/zatsu-web-proxy</a>.
+    </p>
+  </footer>
   <script src="/proxy-bar.js" defer></script>
 </body>
 </html>

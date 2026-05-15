@@ -228,7 +228,9 @@ export default async function handler(request: Request): Promise<Response> {
 
     // Inject a sticky address bar so the user can navigate to another URL
     // without going back to "/". Uses a high z-index and namespaced IDs to
-    // minimize collisions with the underlying page.
+    // minimize collisions with the underlying page. The bar can be hidden
+    // via the × button; a small "zatsu" pin in the top-right corner brings
+    // it back. Hidden state persists across pages via localStorage.
     $('head').append(
       '<style id="__zatsu_proxy_bar_style__">' +
         '#__zatsu_proxy_bar__{position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
@@ -238,8 +240,11 @@ export default async function handler(request: Request): Promise<Response> {
         '#__zatsu_proxy_bar__ form{display:flex;gap:8px;flex:1;margin:0}' +
         '#__zatsu_proxy_bar__ input{flex:1;padding:6px 10px;border-radius:4px;' +
         'border:1px solid #444;background:#fff;color:#000;font:inherit;box-sizing:border-box}' +
-        '#__zatsu_proxy_bar__ button{padding:6px 14px;background:#0070f3;color:#fff;' +
+        '#__zatsu_proxy_bar__ form button{padding:6px 14px;background:#0070f3;color:#fff;' +
         'border:0;border-radius:4px;font:inherit;cursor:pointer}' +
+        '#__zatsu_proxy_close__{padding:0 6px;background:transparent;color:#888;' +
+        'border:0;cursor:pointer;font:18px/1 -apple-system,sans-serif}' +
+        '#__zatsu_proxy_close__:hover{color:#fff}' +
         // Autocomplete dropdown — dark theme to match the bar.
         '#__zatsu_proxy_bar__ .zatsu-ac-wrap{position:relative;flex:1;display:flex}' +
         '#__zatsu_proxy_bar__ .zatsu-ac-wrap input{flex:1}' +
@@ -252,14 +257,33 @@ export default async function handler(request: Request): Promise<Response> {
         '#__zatsu_proxy_bar__ .zatsu-ac-item:hover,' +
         '#__zatsu_proxy_bar__ .zatsu-ac-item.active{background:#2a2a2a;color:#fff}' +
         'body{padding-top:48px !important}' +
+        // Hidden state: collapse the bar, drop the body padding, and reveal
+        // the corner pin. Using html.zatsu-bar-hidden gives enough
+        // specificity to beat the default body padding-top rule above.
+        '#__zatsu_proxy_open__{display:none;position:fixed;top:0;right:0;z-index:2147483647;' +
+        'padding:4px 8px;background:#111;color:#ddd;border:0;' +
+        'border-bottom-left-radius:6px;font:11px/1.2 -apple-system,sans-serif;' +
+        'cursor:pointer;opacity:.45;transition:opacity .15s}' +
+        '#__zatsu_proxy_open__:hover{opacity:1}' +
+        'html.zatsu-bar-hidden #__zatsu_proxy_bar__{display:none !important}' +
+        'html.zatsu-bar-hidden body{padding-top:0 !important}' +
+        'html.zatsu-bar-hidden #__zatsu_proxy_open__{display:block}' +
         '</style>',
     )
+
+    // Apply the hidden class synchronously before render so the bar does
+    // not flash in for users who have it hidden.
+    $('head').append(
+      `<script id="__zatsu_proxy_init__">try{if(localStorage.getItem('zatsu-proxy-bar-hidden')==='1')document.documentElement.classList.add('zatsu-bar-hidden')}catch(e){}</script>`,
+    )
+
     const bar = $(
       '<div id="__zatsu_proxy_bar__">' +
         '<form action="/api/proxy" method="get">' +
         '<input type="text" inputmode="url" autocomplete="off" spellcheck="false" name="url" required placeholder="example.com or https://..." data-zatsu-ac>' +
         '<button type="submit">Go</button>' +
         '</form>' +
+        '<button type="button" id="__zatsu_proxy_close__" title="Hide proxy bar" aria-label="Hide proxy bar">×</button>' +
         '</div>',
     )
     bar
@@ -267,10 +291,19 @@ export default async function handler(request: Request): Promise<Response> {
       .attr('value', finalUrl)
       .attr('data-zatsu-current-url', finalUrl)
     $('body').prepend(bar)
+    $('body').prepend(
+      '<button type="button" id="__zatsu_proxy_open__" title="Show proxy bar" aria-label="Show proxy bar">zatsu</button>',
+    )
 
     // Shared autocomplete + history logic lives in /proxy-bar.js so both
     // entry points (landing form and this injected bar) stay in sync.
     $('body').append('<script src="/proxy-bar.js" defer></script>')
+
+    // Hide/show toggle. Kept inline because it is specific to the injected
+    // bar; proxy-bar.js stays generic for any host that wants autocomplete.
+    $('body').append(
+      `<script id="__zatsu_proxy_toggle__">(function(){var K='zatsu-proxy-bar-hidden';function s(h){var c=document.documentElement.classList;if(h)c.add('zatsu-bar-hidden');else c.remove('zatsu-bar-hidden');try{localStorage.setItem(K,h?'1':'0')}catch(e){}}var c=document.getElementById('__zatsu_proxy_close__'),o=document.getElementById('__zatsu_proxy_open__');if(c)c.addEventListener('click',function(){s(true)});if(o)o.addEventListener('click',function(){s(false)})})();</script>`,
+    )
 
     return new Response($.html(), {
       status: upstream.status,
