@@ -240,30 +240,37 @@ export default async function handler(request: Request): Promise<Response> {
         'border:1px solid #444;background:#fff;color:#000;font:inherit;box-sizing:border-box}' +
         '#__zatsu_proxy_bar__ button{padding:6px 14px;background:#0070f3;color:#fff;' +
         'border:0;border-radius:4px;font:inherit;cursor:pointer}' +
+        // Autocomplete dropdown — dark theme to match the bar.
+        '#__zatsu_proxy_bar__ .zatsu-ac-wrap{position:relative;flex:1;display:flex}' +
+        '#__zatsu_proxy_bar__ .zatsu-ac-wrap input{flex:1}' +
+        '#__zatsu_proxy_bar__ .zatsu-ac-dropdown{position:absolute;top:calc(100% + 4px);' +
+        'left:0;right:0;list-style:none;margin:0;padding:4px 0;background:#1c1c1c;' +
+        'border:1px solid #333;border-radius:6px;box-shadow:0 6px 24px rgba(0,0,0,.4);' +
+        'max-height:280px;overflow-y:auto;z-index:2147483647}' +
+        '#__zatsu_proxy_bar__ .zatsu-ac-item{padding:6px 10px;cursor:pointer;font-size:13px;' +
+        'color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+        '#__zatsu_proxy_bar__ .zatsu-ac-item:hover,' +
+        '#__zatsu_proxy_bar__ .zatsu-ac-item.active{background:#2a2a2a;color:#fff}' +
         'body{padding-top:48px !important}' +
         '</style>',
     )
     const bar = $(
       '<div id="__zatsu_proxy_bar__">' +
         '<form action="/api/proxy" method="get">' +
-        '<input type="text" inputmode="url" autocomplete="url" spellcheck="false" name="url" list="__zatsu_history__" required placeholder="example.com or https://...">' +
+        '<input type="text" inputmode="url" autocomplete="off" spellcheck="false" name="url" required placeholder="example.com or https://..." data-zatsu-ac>' +
         '<button type="submit">Go</button>' +
         '</form>' +
-        '<datalist id="__zatsu_history__"></datalist>' +
         '</div>',
     )
-    bar.find('input').attr('value', finalUrl)
+    bar
+      .find('input')
+      .attr('value', finalUrl)
+      .attr('data-zatsu-current-url', finalUrl)
     $('body').prepend(bar)
 
-    // Persist the current proxied URL and offer history-based autocomplete
-    // in the injected bar. Entries are canonicalized via the URL parser so
-    // they match what the landing-page form stores, and old non-normalized
-    // entries get cleaned up on every read.
-    $('body').append(
-      `<script id="__zatsu_proxy_history__">(function(){var K='zatsu-proxy-history',M=50,cur=${JSON.stringify(
-        finalUrl,
-      )};function n(v){var t=(v||'').trim();if(!t)return'';var c=t.slice(0,2)==='//'?'https:'+t:(/^[a-z][a-z0-9+.\\-]*:/i.test(t)?t:'https://'+t);try{var u=new URL(c);return u.protocol==='https:'?u.toString():''}catch(e){return''}}try{var raw=JSON.parse(localStorage.getItem(K)||'[]'),seen=Object.create(null),h=[];for(var i=0;i<raw.length;i++){var x=n(raw[i]);if(x&&!seen[x]){seen[x]=1;h.push(x)}}var nc=n(cur);if(nc)h=[nc].concat(h.filter(function(u){return u!==nc})).slice(0,M);localStorage.setItem(K,JSON.stringify(h));var dl=document.getElementById('__zatsu_history__');if(dl){for(var j=0;j<h.length;j++){var o=document.createElement('option');o.value=h[j];dl.appendChild(o)}}}catch(e){}})();</script>`,
-    )
+    // Shared autocomplete + history logic lives in /proxy-bar.js so both
+    // entry points (landing form and this injected bar) stay in sync.
+    $('body').append('<script src="/proxy-bar.js" defer></script>')
 
     return new Response($.html(), {
       status: upstream.status,
