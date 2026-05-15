@@ -229,13 +229,22 @@ export default async function handler(request: Request): Promise<Response> {
     const bar = $(
       '<div id="__zatsu_proxy_bar__">' +
         '<form action="/api/proxy" method="get">' +
-        '<input type="url" name="url" required placeholder="https://...">' +
+        '<input type="url" name="url" list="__zatsu_history__" required placeholder="https://...">' +
         '<button type="submit">Go</button>' +
         '</form>' +
+        '<datalist id="__zatsu_history__"></datalist>' +
         '</div>',
     )
     bar.find('input').attr('value', finalUrl)
     $('body').prepend(bar)
+
+    // Persist the current proxied URL and offer history-based autocomplete
+    // in the injected bar. JSON-encoded URL prevents any string-breakout.
+    $('body').append(
+      `<script id="__zatsu_proxy_history__">(function(){var K='zatsu-proxy-history',M=50,cur=${JSON.stringify(
+        finalUrl,
+      )};try{var h=JSON.parse(localStorage.getItem(K)||'[]');if(cur)h=[cur].concat(h.filter(function(u){return u!==cur})).slice(0,M);localStorage.setItem(K,JSON.stringify(h));var dl=document.getElementById('__zatsu_history__');if(dl){for(var i=0;i<h.length;i++){var o=document.createElement('option');o.value=h[i];dl.appendChild(o);}}}catch(e){}})();</script>`,
+    )
 
     return new Response($.html(), {
       status: upstream.status,

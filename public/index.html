@@ -3,7 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web Proxy</title>
+  <title>zatsu web proxy</title>
+  <meta name="description" content="A quick & dirty URL proxy to view sites that domain-restricted networks block.">
+  <meta property="og:title" content="zatsu web proxy">
+  <meta property="og:description" content="A quick & dirty URL proxy to view sites that domain-restricted networks block.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://zatsu-web-proxy.vercel.app/">
+  <meta property="og:site_name" content="zatsu-web-proxy">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="zatsu web proxy">
+  <meta name="twitter:description" content="A quick & dirty URL proxy to view sites that domain-restricted networks block.">
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -36,18 +45,40 @@
   </style>
 </head>
 <body>
-  <h1>Web Proxy</h1>
+  <h1>zatsu web proxy</h1>
   <p>Enter a URL to fetch it through this proxy.</p>
   <form action="/api/proxy" method="get">
-    <input type="url" name="url" placeholder="https://example.com" required autofocus>
+    <input type="url" name="url" list="zatsu-history" placeholder="https://example.com" required autofocus>
     <button type="submit">Go</button>
   </form>
+  <datalist id="zatsu-history"></datalist>
   <h2 style="font-size: 1rem; margin-top: 2rem;">Limitations</h2>
   <ul>
-    <li>Only HTML pages and their images / static assets are rewritten.</li>
-    <li>JavaScript-driven navigation, fetch / XHR requests, and WebSockets do not go through the proxy.</li>
+    <li>Pages whose body is rendered by JavaScript after load (most SPAs) do not work — only the initial HTML and its referenced CSS / images are rewritten.</li>
     <li>Cookies and authenticated sessions are not preserved.</li>
-    <li>GET forms on the original page may not work because the form action is replaced.</li>
+    <li>WebSockets, fetch / XHR from page scripts, and GET forms on the original page may break.</li>
   </ul>
+  <script>
+    (function () {
+      var KEY = 'zatsu-proxy-history';
+      var MAX = 50;
+      var dl = document.getElementById('zatsu-history');
+      var h;
+      try { h = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { h = []; }
+      for (var i = 0; i < h.length; i++) {
+        var o = document.createElement('option');
+        o.value = h[i];
+        dl.appendChild(o);
+      }
+      document.querySelector('form').addEventListener('submit', function (e) {
+        var v = (e.target.url.value || '').trim();
+        if (!v) return;
+        var cur;
+        try { cur = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (err) { cur = []; }
+        cur = [v].concat(cur.filter(function (u) { return u !== v; })).slice(0, MAX);
+        localStorage.setItem(KEY, JSON.stringify(cur));
+      });
+    })();
+  </script>
 </body>
 </html>
