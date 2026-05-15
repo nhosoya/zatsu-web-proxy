@@ -1,0 +1,22 @@
+{
+  "name": "zatsu-web-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A zatsu (quick & dirty) URL proxy on Vercel for restricted networks",
+  "scripts": {
+    "dev": "tsx dev-server.ts",
+    "dev:vercel": "vercel dev",
+    "deploy": "vercel deploy --prod",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vercel": "^39.0.0"
+  }
+}
