@@ -38,12 +38,25 @@
     opts = opts || {};
     if (opts.currentUrl) saveUrl(opts.currentUrl);
 
+    // Capture pre-wrap focus state so we can restore it. autofocus on the
+    // landing-page input fires during HTML parsing, but moving the element
+    // into our wrapper can drop focus in some browsers.
+    var shouldRefocus = document.activeElement === input || input.hasAttribute('autofocus');
+
     // Wrap input so the dropdown can position-anchor to its bounding box.
     var wrap = document.createElement('div');
     wrap.className = 'zatsu-ac-wrap';
     var parent = input.parentNode;
     parent.insertBefore(wrap, input);
     wrap.appendChild(input);
+
+    if (shouldRefocus) {
+      input.focus();
+      try {
+        var n = (input.value || '').length;
+        input.setSelectionRange(n, n);
+      } catch (e) { /* not all input types support setSelectionRange */ }
+    }
 
     var dropdown = document.createElement('ul');
     dropdown.className = 'zatsu-ac-dropdown';
