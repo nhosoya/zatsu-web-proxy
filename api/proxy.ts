@@ -5,6 +5,12 @@ export const config = { runtime: 'edge' }
 const PROXY_PATH = '/api/proxy'
 const FETCH_TIMEOUT_MS = 8_000
 
+// Edge-only cache (no max-age) so browsers always revalidate but Vercel's
+// CDN holds the response for `s-maxage` seconds and serves stale within
+// `stale-while-revalidate` while it refreshes in the background.
+const HTML_CACHE = 'public, s-maxage=300, stale-while-revalidate=86400'
+const ASSET_CACHE = 'public, s-maxage=86400, stale-while-revalidate=604800'
+
 function rewriteUrl(value: string | undefined, baseUrl: string): string | undefined {
   if (!value) return value
   const trimmed = value.trim()
@@ -205,6 +211,9 @@ export default async function handler(request: Request): Promise<Response> {
       status: upstream.status,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
+        // Only cache successful responses; otherwise an upstream blip
+        // would be served stale for the whole TTL window.
+        'Cache-Control': upstream.ok ? HTML_CACHE : 'no-store',
       },
     })
   }
@@ -214,7 +223,7 @@ export default async function handler(request: Request): Promise<Response> {
     status: upstream.status,
     headers: {
       'Content-Type': contentType || 'application/octet-stream',
-      'Cache-Control': upstream.headers.get('cache-control') ?? 'public, max-age=3600',
+      'Cache-Control': upstream.ok ? ASSET_CACHE : 'no-store',
     },
   })
 }
