@@ -173,6 +173,34 @@ export default async function handler(request: Request): Promise<Response> {
     // <base> would interfere with our absolute-URL rewrites.
     $('base').remove()
 
+    // Inject a sticky address bar so the user can navigate to another URL
+    // without going back to "/". Uses a high z-index and namespaced IDs to
+    // minimize collisions with the underlying page.
+    $('head').append(
+      '<style id="__zatsu_proxy_bar_style__">' +
+        '#__zatsu_proxy_bar__{position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
+        'background:#111;color:#fff;padding:8px 12px;box-sizing:border-box;' +
+        'font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;' +
+        'box-shadow:0 2px 8px rgba(0,0,0,.3);display:flex;gap:8px;align-items:center}' +
+        '#__zatsu_proxy_bar__ form{display:flex;gap:8px;flex:1;margin:0}' +
+        '#__zatsu_proxy_bar__ input{flex:1;padding:6px 10px;border-radius:4px;' +
+        'border:1px solid #444;background:#fff;color:#000;font:inherit;box-sizing:border-box}' +
+        '#__zatsu_proxy_bar__ button{padding:6px 14px;background:#0070f3;color:#fff;' +
+        'border:0;border-radius:4px;font:inherit;cursor:pointer}' +
+        'body{padding-top:48px !important}' +
+        '</style>',
+    )
+    const bar = $(
+      '<div id="__zatsu_proxy_bar__">' +
+        '<form action="/api/proxy" method="get">' +
+        '<input type="url" name="url" required placeholder="https://...">' +
+        '<button type="submit">Go</button>' +
+        '</form>' +
+        '</div>',
+    )
+    bar.find('input').attr('value', finalUrl)
+    $('body').prepend(bar)
+
     return new Response($.html(), {
       status: upstream.status,
       headers: {
