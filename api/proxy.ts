@@ -104,6 +104,25 @@ function rewriteSrcset(value: string | undefined, baseUrl: string): string | und
     .join(', ')
 }
 
+// Accept "example.com", "example.com/path", "//example.com", or a full URL
+// and produce a URL. Scheme-less input is upgraded to https — http stays
+// http here and gets rejected one level up.
+function normalizeTargetUrl(input: string): URL | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+  let candidate = trimmed
+  if (candidate.startsWith('//')) {
+    candidate = 'https:' + candidate
+  } else if (!/^[a-z][a-z0-9+.-]*:/i.test(candidate)) {
+    candidate = 'https://' + candidate
+  }
+  try {
+    return new URL(candidate)
+  } catch {
+    return null
+  }
+}
+
 export default async function handler(request: Request): Promise<Response> {
   const queryString = request.url.split('?')[1] ?? ''
   const target = new URLSearchParams(queryString).get('url')
@@ -112,15 +131,13 @@ export default async function handler(request: Request): Promise<Response> {
     return new Response('Missing url query parameter', { status: 400 })
   }
 
-  let targetUrl: URL
-  try {
-    targetUrl = new URL(target)
-  } catch {
+  const targetUrl = normalizeTargetUrl(target)
+  if (!targetUrl) {
     return new Response('Invalid url', { status: 400 })
   }
 
-  if (targetUrl.protocol !== 'http:' && targetUrl.protocol !== 'https:') {
-    return new Response('Only http/https URLs are supported', { status: 400 })
+  if (targetUrl.protocol !== 'https:') {
+    return new Response('Only HTTPS URLs are supported', { status: 400 })
   }
 
   if (isBlockedHost(targetUrl.hostname)) {
@@ -229,7 +246,7 @@ export default async function handler(request: Request): Promise<Response> {
     const bar = $(
       '<div id="__zatsu_proxy_bar__">' +
         '<form action="/api/proxy" method="get">' +
-        '<input type="url" name="url" list="__zatsu_history__" required placeholder="https://...">' +
+        '<input type="text" inputmode="url" autocomplete="url" spellcheck="false" name="url" list="__zatsu_history__" required placeholder="example.com or https://...">' +
         '<button type="submit">Go</button>' +
         '</form>' +
         '<datalist id="__zatsu_history__"></datalist>' +

@@ -24,7 +24,7 @@
     h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
     p { color: #666; margin-top: 0; }
     form { display: flex; gap: 0.5rem; margin-top: 1.5rem; }
-    input[type="url"] {
+    input[name="url"] {
       flex: 1;
       padding: 0.6rem 0.8rem;
       font-size: 1rem;
@@ -48,7 +48,7 @@
   <h1>zatsu web proxy</h1>
   <p>Enter a URL to fetch it through this proxy.</p>
   <form action="/api/proxy" method="get">
-    <input type="url" name="url" list="zatsu-history" placeholder="https://example.com" required autofocus>
+    <input type="text" inputmode="url" autocomplete="url" spellcheck="false" name="url" list="zatsu-history" placeholder="example.com or https://example.com" required autofocus>
     <button type="submit">Go</button>
   </form>
   <datalist id="zatsu-history"></datalist>
