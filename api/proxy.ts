@@ -28,6 +28,48 @@ function rewriteUrl(value: string | undefined, baseUrl: string): string | undefi
   }
 }
 
+function isPrivateIPv4(host: string): boolean {
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (!m) return false
+  const [a, b] = [Number(m[1]), Number(m[2])]
+  if (a === 0) return true
+  if (a === 10) return true
+  if (a === 127) return true
+  if (a === 169 && b === 254) return true // link-local, incl. cloud metadata
+  if (a === 172 && b >= 16 && b <= 31) return true
+  if (a === 192 && b === 168) return true
+  if (a === 100 && b >= 64 && b <= 127) return true // CGNAT
+  return false
+}
+
+function isPrivateIPv6(host: string): boolean {
+  const lower = host.toLowerCase().replace(/^\[|\]$/g, '')
+  if (lower === '::1' || lower === '::') return true
+  if (/^fc|^fd/.test(lower)) return true // unique local
+  if (/^fe[89ab]/.test(lower)) return true // link-local
+  if (lower.startsWith('::ffff:')) {
+    // IPv4-mapped IPv6
+    const v4 = lower.slice('::ffff:'.length)
+    return isPrivateIPv4(v4)
+  }
+  return false
+}
+
+// Block obvious SSRF targets. Does not protect against DNS rebinding —
+// a hostname could resolve to a private IP between this check and fetch.
+// Mitigating that would require DoH resolution + fetch-by-IP, which is
+// out of scope for the zatsu version.
+function isBlockedHost(hostname: string): boolean {
+  const lower = hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  if (lower === 'localhost') return true
+  if (lower.endsWith('.localhost')) return true
+  if (lower.endsWith('.local')) return true
+  if (lower.endsWith('.internal')) return true
+  if (lower.endsWith('.lan')) return true
+  if (lower.includes(':')) return isPrivateIPv6(lower)
+  return isPrivateIPv4(lower)
+}
+
 function rewriteSrcset(value: string | undefined, baseUrl: string): string | undefined {
   if (!value) return value
   return value
@@ -59,6 +101,10 @@ export default async function handler(request: Request): Promise<Response> {
 
   if (targetUrl.protocol !== 'http:' && targetUrl.protocol !== 'https:') {
     return new Response('Only http/https URLs are supported', { status: 400 })
+  }
+
+  if (isBlockedHost(targetUrl.hostname)) {
+    return new Response('Blocked: private or internal host', { status: 403 })
   }
 
   let upstream: Response
