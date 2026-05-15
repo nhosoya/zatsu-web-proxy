@@ -104,6 +104,45 @@ function rewriteSrcset(value: string | undefined, baseUrl: string): string | und
     .join(', ')
 }
 
+function buildFallbackRedirect(
+  fallbackPath: string,
+  params: URLSearchParams,
+  referer: string | null,
+): string | null {
+  if (!referer) return null
+  let refUrl: URL
+  try {
+    refUrl = new URL(referer)
+  } catch {
+    return null
+  }
+  const refTarget = refUrl.searchParams.get('url')
+  if (!refTarget) return null
+  let upstreamPage: URL
+  try {
+    upstreamPage = new URL(refTarget)
+  } catch {
+    return null
+  }
+  let target: URL
+  try {
+    target = new URL('/' + fallbackPath, upstreamPage)
+  } catch {
+    return null
+  }
+  // Forward any extra query params on the un-rewritten URL (e.g. ?q=foo
+  // for a /search?q=foo click) so they reach the upstream.
+  for (const [k, v] of params) {
+    if (k !== 'fallback_path' && k !== 'url') {
+      target.searchParams.append(k, v)
+    }
+  }
+  return new URL(
+    `/api/proxy?url=${encodeURIComponent(target.toString())}`,
+    refUrl.origin,
+  ).toString()
+}
+
 // Accept "example.com", "example.com/path", "//example.com", or a full URL
 // and produce a URL. Scheme-less input is upgraded to https — http stays
 // http here and gets rejected one level up.
@@ -125,9 +164,26 @@ function normalizeTargetUrl(input: string): URL | null {
 
 export default async function handler(request: Request): Promise<Response> {
   const queryString = request.url.split('?')[1] ?? ''
-  const target = new URLSearchParams(queryString).get('url')
+  const params = new URLSearchParams(queryString)
+  const target = params.get('url')
 
   if (!target) {
+    // When the proxied page contains links that escaped the HTML rewriter
+    // (Mustache-style templates, JS-rendered DOM, etc.), the browser ends
+    // up requesting paths like /articles/foo directly on this domain.
+    // vercel.json rewrites those to /api/proxy?fallback_path=articles/foo;
+    // here we use the Referer's ?url= to reconstruct the upstream origin
+    // and redirect to the canonical proxy URL so the rest of the flow
+    // (rewriting, caching, the address bar) works normally.
+    const fallbackPath = params.get('fallback_path')
+    if (fallbackPath !== null) {
+      const redirect = buildFallbackRedirect(
+        fallbackPath,
+        params,
+        request.headers.get('referer'),
+      )
+      if (redirect) return Response.redirect(redirect, 302)
+    }
     return new Response('Missing url query parameter', { status: 400 })
   }
 
