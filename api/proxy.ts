@@ -76,6 +76,20 @@ function isBlockedHost(hostname: string): boolean {
   return isPrivateIPv4(lower)
 }
 
+// Rewrite all `url(...)` references in a CSS source string so they flow
+// through the proxy. Reuses rewriteUrl() so `data:`, `#fragment`, and
+// other non-network schemes are left alone — important for SVG fragment
+// refs like `url(#gradient)` and inline data URLs.
+function rewriteCssUrls(css: string, baseUrl: string): string {
+  return css.replace(
+    /url\(\s*(['"]?)([^'")]+?)\1\s*\)/g,
+    (_match, quote: string, url: string) => {
+      const rewritten = rewriteUrl(url, baseUrl) ?? url
+      return `url(${quote}${rewritten}${quote})`
+    },
+  )
+}
+
 function rewriteSrcset(value: string | undefined, baseUrl: string): string | undefined {
   if (!value) return value
   return value
@@ -171,6 +185,22 @@ export default async function handler(request: Request): Promise<Response> {
       }
     })
 
+    // Rewrite url(...) inside inline <style> blocks.
+    $('style').each((_, el) => {
+      const $el = $(el)
+      const css = $el.html()
+      if (css) $el.html(rewriteCssUrls(css, finalUrl))
+    })
+
+    // Rewrite url(...) inside style="..." attributes.
+    $('[style]').each((_, el) => {
+      const $el = $(el)
+      const value = $el.attr('style')
+      if (value && value.includes('url(')) {
+        $el.attr('style', rewriteCssUrls(value, finalUrl))
+      }
+    })
+
     // Subresource integrity hashes won't match after URL rewriting.
     $('[integrity]').removeAttr('integrity')
     $('[crossorigin]').removeAttr('crossorigin')
@@ -214,6 +244,17 @@ export default async function handler(request: Request): Promise<Response> {
         // Only cache successful responses; otherwise an upstream blip
         // would be served stale for the whole TTL window.
         'Cache-Control': upstream.ok ? HTML_CACHE : 'no-store',
+      },
+    })
+  }
+
+  if (contentType.toLowerCase().includes('text/css')) {
+    const css = await upstream.text()
+    return new Response(rewriteCssUrls(css, finalUrl), {
+      status: upstream.status,
+      headers: {
+        'Content-Type': 'text/css; charset=utf-8',
+        'Cache-Control': upstream.ok ? ASSET_CACHE : 'no-store',
       },
     })
   }
